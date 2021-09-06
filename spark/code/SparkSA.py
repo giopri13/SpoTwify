@@ -56,12 +56,14 @@ def training():
     training_set
 
     # Pipeline
+    print("Creating ML pipeline...", "\n")
     stage_1 = RegexTokenizer(inputCol = 'SentimentText', outputCol = 'tokens', pattern = '\\W')
     stage_2 = StopWordsRemover(inputCol = 'tokens', outputCol = 'filtered_words')
     stage_3 = Word2Vec(inputCol = 'filtered_words', outputCol = 'vector', vectorSize = 100)
     model = LogisticRegression(featuresCol = 'vector', labelCol = 'Sentiment')
     pipeline = Pipeline(stages = [stage_1, stage_2, stage_3, model])
     print("Pipeline created", "\n")
+    print("Creating logit model...", "\n")
     pipelineLRFit = pipeline.fit(training_set)
     print("Logit model created", "\n")
 
