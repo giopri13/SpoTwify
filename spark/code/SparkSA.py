@@ -19,6 +19,7 @@ from pyspark.ml.feature import HashingTF, IDF, Tokenizer
 from pyspark.ml.classification import NaiveBayes
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from elasticsearch import Elasticsearch
+from datetime import datetime
 
 print(os.path.realpath(__file__))
 import sys
@@ -71,27 +72,26 @@ def training():
     pipelineLRFit.transform(training_set).show()
     return pipelineLRFit
 
-
-tweetSchema = tp.StructType([
-    tp.StructField("URL", tp.StringType(), True),
-    tp.StructField("SentimentText", tp.StringType(), True),
-])
-
-spotifySchema = tp.StructType([
+appSchema = tp.StructType([
     tp.StructField("Artist", tp.StringType(), True),
     tp.StructField("Title", tp.StringType(), True),
-    tp.StructField("URL", tp.StringType(), True)
+    tp.StructField("URL", tp.StringType(), True),
+    tp.StructField("SentimentText", tp.StringType(), True)
+#    tp.StructField("@timestamp", tp.StringType(), True)
 ])
 
-tweetStorage = spark.createDataFrame(sc.emptyRDD(), tweetSchema)
+tweetStorage = spark.createDataFrame(sc.emptyRDD(), appSchema)
 
 es_mapping = {
     "mappings": {
         "properties":
         {
-            "URL": {"type": "text", "fielddata": True},
+            "Artist": {"type": "constant_keyword", "fielddata": True},
+            "Title": {"type": "constant_keyword", "fielddata": True},
+            "URL": {"type": "constant_keyword", "fielddata": True},
             "Tweet": {"type": "text", "fielddata": True},
             "Sentiment": {"type": "integer"}
+#            "@timestamp": {"type": "date", "format": "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"}
         }
     }
 }
@@ -110,26 +110,22 @@ if 'acknowledged' in response:
 
 def mapinfo(batchDF, batchID):
     print("******** foreach ********", batchID)
-#    print(df.collect())
-#    t = rdd.map(lambda val: val.lower()).collect()
-#    print(type(df))
-#    print(t)
     valueRdd = batchDF.rdd.map(lambda x: x[1])
     print(valueRdd, "\n")
     strList = valueRdd.map(lambda x: json.loads(x)).collect() #list of strings with json value
-    print(strList, "\n")
-    print(type(strList), "\n")
+    print("\n", strList, "\n")
     tupleList = []
     for string in strList:
-        urlStr = string.split('","', 1)[0].split('":"', 1)[1]
-        tweetStr = string.split('","', 1)[1].split('":"', 1)[1]
-        tuple = (urlStr, tweetStr[:len(tweetStr) - 2])
+        splitStr = string.split('","')
+        artistStr = splitStr[0].split('":"', 1)[1]
+        titleStr = splitStr[1].split('":"', 1)[1]
+        urlStr = splitStr[2].split('":"', 1)[1]
+        tweetStr = splitStr[3].split('":"', 1)[1]
+
+        tuple = (artistStr, titleStr, urlStr, tweetStr[:len(tweetStr) - 2])
         tupleList.append(tuple)
-        print(tweetStr, "\n")
-    tweetDF = spark.createDataFrame(data = tupleList, schema = tweetSchema)
-    tweetDF.printSchema()
-    tweetDF.show(truncate = False)
-    transformedDF = pipelineLogit.transform(tweetDF).select('URL', 'SentimentText', 'prediction')
+    tweetDF = spark.createDataFrame(data = tupleList, schema = appSchema)
+    transformedDF = pipelineLogit.transform(tweetDF).select('Artist', 'Title', 'URL', 'SentimentText', 'prediction')
     transformedDF.show(truncate = False)
 
     transformedDF.write \
@@ -137,8 +133,6 @@ def mapinfo(batchDF, batchID):
     .mode("append") \
     .option("es.mapping.id", "URL") \
     .option("es.nodes", elastic_host).save(elastic_index)
-
-
 
 pipelineLogit = training()
 

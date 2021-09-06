@@ -68,35 +68,24 @@ def main():
     print("Retrieving playlist...")
     top50_playlist = get_spotify_top50_playlist(spotifyAPI)
     print("{} Playlist retrieved".format(top50_playlist))
-    kafkaProducer.send("spotify", value = top50_playlist)
+    
     sleep(3)
-    url_filter = []
-    for song in top50_playlist:
-        url_filter.append(song.get("URL"))
     
     print("Searching for tweets based on Spotify URLs...")
+    json_artistField = "Artist"
+    json_titleField = "Title"
     json_urlField = "URL"
     json_tweetField = "tweet"
-    for url in url_filter:
-        tweetsQuery = tweepy.Cursor(twitterAPI.search, q = url, lang = "en").items()
-        for tweet in tweetsQuery:
-            json_output = '{"'+json_urlField+'":"'+url+'","'+json_tweetField+'":"'+tweet.text+'"}'
-            dict_output = {'URL': url, 'Tweet': tweet.text}
-            kafkaProducer.send("tweets", value = json_output)
-    print("Twitter search finished")
-    
-    """
-    song_filter = []
+
+    print("Looking for tweets about songs...")
     for song in top50_playlist:
         artist = song.get("Artist")
         title = song.get("Title")
-        song_filter.append(artist + " - " + title)
-    print("Searching for tweets about songs...")
-    for song in song_filter:
-        tweetsQuery = tweepy.Cursor(twitterAPI.search, q = song, lang = "en").items()
+        url = song.get("URL")
+        tweetsQuery = tweepy.Cursor(twitterAPI.search, q = url, lang = "en").items()
         for tweet in tweetsQuery:
-            kafkaProducer.send("tweets", value = tweet.text)
+            json_output = '{"'+json_artistField+'":"'+artist+'","'+json_titleField+'":"'+title+'","'+json_urlField+'":"'+url+'","'+json_tweetField+'":"'+tweet.text+'}'
+            kafkaProducer.send("tweets", value = json_output)
     print("Twitter search finished")
-    """
 
 main()
