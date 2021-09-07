@@ -4,7 +4,7 @@ A simple tool that looks for tweets sharing songs included in the [Top 50 Global
 
 ## Read Me
 
-### Prerequisites:
+### Prerequisites
 
 Before using the tool, be sure to download and place the following items in the correct folders:
 * Download [spark-3.1.1-bin-hadoop2.7.tgz](https://archive.apache.org/dist/spark/spark-3.1.1/) and put it in _/spark/setup/_
